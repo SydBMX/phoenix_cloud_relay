@@ -32,12 +32,22 @@
 
     /* ===== Reset ===== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       overscroll-behavior: none;
       -webkit-tap-highlight-color: transparent;
+    }
+    #app {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
     }
 
     /* ===== Sticky brand header ===== */
@@ -96,8 +106,11 @@
       border-bottom: 1px solid var(--line);
       display: flex;
       gap: 0;
+      width: 100%;
+      max-width: 100vw;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
       scrollbar-width: none;
       padding: 0 10px;
     }
@@ -148,8 +161,11 @@
     .results-pane {
       padding: 12px 12px 72px;
       min-height: 200px;
+      width: 100%;
+      max-width: 100vw;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
     }
 
     /* Force readable text colors for injected module HTML */
@@ -178,7 +194,9 @@
       height: auto !important;
     }
     .results-pane table {
-      width: 100%;
+      width: max-content;
+      min-width: 100%;
+      max-width: none;
       border-collapse: collapse;
       font-size: 13px;
       margin: 8px 0;
