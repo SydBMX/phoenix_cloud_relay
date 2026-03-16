@@ -288,6 +288,12 @@
       border-color: rgba(245, 158, 11, 0.72);
       color: #fde68a;
     }
+    .status-version {
+      flex-shrink: 0;
+      font-size: 10px;
+      opacity: 0.75;
+      letter-spacing: 0.02em;
+    }
     .status-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
@@ -380,6 +386,7 @@
     <div class="status-dot" id="sDot"></div>
     <span id="sText" class="status-text">Connecting…</span>
     <button id="pauseRefreshBtn" class="status-btn" type="button">Pause</button>
+    <span id="viewerVersion" class="status-version"></span>
   </div>
 
 <script>
@@ -391,6 +398,7 @@ const RELAY   = (_p.get('relayUrl') || '').trim() || autoRelayUrl();
 const INIT_ID = (_p.get('eventId') || '').trim();
 const POLL_MS = 3000;
 const STALE_AFTER_MS = 20000;
+const VIEWER_VERSION = '2026.03.16-3';
 
 function autoRelayUrl() {
   // If the viewer is hosted alongside relay.php in the same directory, derive the URL.
@@ -424,6 +432,7 @@ const app  = document.getElementById('app');
 const sDot = document.getElementById('sDot');
 const sText = document.getElementById('sText');
 const pauseRefreshBtn = document.getElementById('pauseRefreshBtn');
+const viewerVersion = document.getElementById('viewerVersion');
 
 function ls(k, v)    { try { if (v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch{} }
 function esc(s)      { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -539,6 +548,8 @@ function init() {
     setStatus('Not configured', 'error');
     return;
   }
+
+  if (viewerVersion) viewerVersion.textContent = 'v' + VIEWER_VERSION;
 
   if (pauseRefreshBtn) {
     pauseRefreshBtn.addEventListener('click', () => {

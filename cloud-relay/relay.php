@@ -11,6 +11,13 @@
 define('API_KEY',            getenv('API_KEY') ?: 'change-this-to-a-strong-secret');
 define('DATA_DIR',           __DIR__ . '/data');
 define('MAX_EVENT_AGE_HOURS', 48);
+define('MAX_BODY_BYTES',     3 * 1024 * 1024); // 3 MB payload guard
+
+// Simple file-based rate limits (per IP)
+define('RATE_GET_LIMIT',     120); // requests
+define('RATE_GET_WINDOW',    60);  // seconds
+define('RATE_POST_LIMIT',    30);  // requests
+define('RATE_POST_WINDOW',   60);  // seconds
 
 // ---------------------------------------------------------------------------
 // Headers
@@ -39,6 +46,15 @@ $method = $_SERVER['REQUEST_METHOD'];
 // POST  –  receive snapshot from Phoenix desktop app
 // ===========================================================================
 if ($method === 'POST') {
+
+    enforceRateLimit('post', RATE_POST_LIMIT, RATE_POST_WINDOW);
+
+    $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($contentLength > MAX_BODY_BYTES) {
+        http_response_code(413);
+        echo json_encode(['error' => 'Payload too large']);
+        exit;
+    }
 
     $apiKey = $_SERVER['HTTP_X_API_KEY']
            ?? $_SERVER['HTTP_X_Api_Key']
@@ -111,6 +127,8 @@ if ($method === 'POST') {
 // ===========================================================================
 if ($method === 'GET') {
 
+    enforceRateLimit('get', RATE_GET_LIMIT, RATE_GET_WINDOW);
+
     cleanOldEvents();
 
     $action = $_GET['action'] ?? 'snapshot';
@@ -169,6 +187,25 @@ if ($method === 'GET') {
         exit;
     }
 
+    // -----------------------------------------------------------------------
+    // GET ?action=cleanup  –  manual cleanup (protected)
+    // -----------------------------------------------------------------------
+    if ($action === 'cleanup') {
+        $apiKey = $_SERVER['HTTP_X_API_KEY']
+               ?? $_SERVER['HTTP_X_Api_Key']
+               ?? ($_GET['apiKey'] ?? '');
+
+        if ($apiKey !== API_KEY) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Unauthorized']);
+            exit;
+        }
+
+        $deleted = cleanOldEvents(true);
+        echo json_encode(['success' => true, 'deleted' => $deleted]);
+        exit;
+    }
+
     http_response_code(400);
     echo json_encode(['error' => 'Unknown action or missing eventId']);
     exit;
@@ -180,13 +217,68 @@ echo json_encode(['error' => 'Method not allowed']);
 // ---------------------------------------------------------------------------
 // Helper: remove event files older than MAX_EVENT_AGE_HOURS
 // ---------------------------------------------------------------------------
-function cleanOldEvents(): void
+function cleanOldEvents(bool $returnCount = false): int
 {
     $maxAge = MAX_EVENT_AGE_HOURS * 3600;
     $now    = time();
+    $deleted = 0;
     foreach (glob(DATA_DIR . '/event-*.json') as $file) {
         if (($now - filemtime($file)) > $maxAge) {
-            @unlink($file);
+            if (@unlink($file)) $deleted++;
         }
+    }
+    return $returnCount ? $deleted : 0;
+}
+
+function getClientIp(): string
+{
+    $ip = $_SERVER['HTTP_CF_CONNECTING_IP']
+       ?? $_SERVER['HTTP_X_FORWARDED_FOR']
+       ?? $_SERVER['REMOTE_ADDR']
+       ?? 'unknown';
+
+    // If X-Forwarded-For has a chain, use the first item.
+    if (strpos($ip, ',') !== false) {
+        $parts = explode(',', $ip);
+        $ip = trim($parts[0]);
+    }
+    return preg_replace('/[^0-9a-fA-F:\.]/', '', $ip) ?: 'unknown';
+}
+
+function enforceRateLimit(string $bucket, int $limit, int $windowSeconds): void
+{
+    $ip = getClientIp();
+    $key = sha1($bucket . '|' . $ip);
+    $file = DATA_DIR . '/ratelimit-' . $key . '.json';
+    $now = time();
+
+    $state = ['windowStart' => $now, 'count' => 0];
+    if (file_exists($file)) {
+        $raw = @file_get_contents($file);
+        if ($raw) {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) $state = $decoded;
+        }
+    }
+
+    $windowStart = (int) ($state['windowStart'] ?? $now);
+    $count = (int) ($state['count'] ?? 0);
+
+    if (($now - $windowStart) >= $windowSeconds) {
+        $windowStart = $now;
+        $count = 0;
+    }
+
+    $count++;
+    @file_put_contents($file, json_encode([
+        'windowStart' => $windowStart,
+        'count' => $count,
+    ]), LOCK_EX);
+
+    if ($count > $limit) {
+        header('Retry-After: ' . max(1, $windowSeconds - ($now - $windowStart)));
+        http_response_code(429);
+        echo json_encode(['error' => 'Rate limit exceeded']);
+        exit;
     }
 }
