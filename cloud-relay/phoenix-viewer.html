@@ -187,18 +187,33 @@
       -webkit-overflow-scrolling: touch;
       white-space: nowrap;
     }
-    .results-pane th, .results-pane td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+    .results-pane th, .results-pane td {
+      padding: 7px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      background: transparent !important;
+    }
     .results-pane th { background: #f1f5f9; font-weight: 700; font-size: 12px; color: #374151; }
     @media (prefers-color-scheme: dark) {
       .results-pane th { background: #263148; color: #e2e8f0; }
     }
-    .results-pane tr:first-child td { background: #fffbeb !important; font-weight: 600; }
-    .results-pane tr:nth-child(2) td  { background: #f8fafc !important; }
-    .results-pane tr:nth-child(3) td  { background: #fff8f5 !important; }
+    .results-pane tbody tr:nth-child(odd) td { background: rgba(15, 76, 129, 0.08) !important; }
+    .results-pane tbody tr:nth-child(even) td { background: rgba(15, 76, 129, 0.02) !important; }
     @media (prefers-color-scheme: dark) {
-      .results-pane tr:first-child td  { background: #2d2a00 !important; }
-      .results-pane tr:nth-child(2) td { background: #1e293b !important; }
-      .results-pane tr:nth-child(3) td { background: #221a16 !important; }
+      .results-pane tbody tr:nth-child(odd) td { background: rgba(15, 76, 129, 0.34) !important; }
+      .results-pane tbody tr:nth-child(even) td { background: rgba(8, 22, 46, 0.78) !important; }
+      .results-pane h2 { color: #9fd6ff !important; }
+      .results-pane h3 { color: #7dc6ff !important; }
+    }
+
+    /* Podium row styling: keep for results, disable for Start Lists */
+    .results-pane:not([data-pt-view="startlists"]) tr:first-child td { background: #fffbeb !important; font-weight: 700; }
+    .results-pane:not([data-pt-view="startlists"]) tr:nth-child(2) td  { background: #f8fafc !important; }
+    .results-pane:not([data-pt-view="startlists"]) tr:nth-child(3) td  { background: #fff8f5 !important; }
+    @media (prefers-color-scheme: dark) {
+      .results-pane:not([data-pt-view="startlists"]) tr:first-child td  { background: #3a3300 !important; }
+      .results-pane:not([data-pt-view="startlists"]) tr:nth-child(2) td { background: #24354d !important; }
+      .results-pane:not([data-pt-view="startlists"]) tr:nth-child(3) td { background: #33231c !important; }
     }
     .results-pane h2 { font-size: 17px; font-weight: 800; margin: 14px 0 6px; color: var(--brand-dk); }
     .results-pane h3 { font-size: 14px; font-weight: 700; margin: 10px 0 4px; color: var(--brand-md); }
@@ -590,7 +605,7 @@ function renderLive(snaps) {
     <div class="tab-bar" id="tabBar">${tabs}</div>
     ${ptSubBar}
     ${catBar}
-    <div class="results-pane" id="rPane">${html||'<div class="state-wrap"><div class="state-desc">No data available.</div></div>'}</div>`;
+    <div class="results-pane" id="rPane"${isPt ? ` data-pt-view="${esc(currentPtView)}"` : ''}>${html||'<div class="state-wrap"><div class="state-desc">No data available.</div></div>'}</div>`;
 
   applyCategory();
   bindEvents();
