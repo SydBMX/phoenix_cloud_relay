@@ -265,6 +265,29 @@
       gap: 8px;
       z-index: 200;
     }
+    .status-text {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status-btn {
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .status-btn.active {
+      background: rgba(245, 158, 11, 0.22);
+      border-color: rgba(245, 158, 11, 0.72);
+      color: #fde68a;
+    }
     .status-dot {
       width: 7px; height: 7px;
       border-radius: 50%;
@@ -355,7 +378,8 @@
 
   <div class="status-bar">
     <div class="status-dot" id="sDot"></div>
-    <span id="sText">Connecting…</span>
+    <span id="sText" class="status-text">Connecting…</span>
+    <button id="pauseRefreshBtn" class="status-btn" type="button">Pause</button>
   </div>
 
 <script>
@@ -391,6 +415,7 @@ let lastRenderedSnapshotHash = '';
 let pendingSnapshotForRender = null;
 let userIsInteracting = false;
 let interactionReleaseTimer = null;
+let autoRefreshPaused = false;
 
 // =============================================================================
 // Helpers
@@ -398,6 +423,7 @@ let interactionReleaseTimer = null;
 const app  = document.getElementById('app');
 const sDot = document.getElementById('sDot');
 const sText = document.getElementById('sText');
+const pauseRefreshBtn = document.getElementById('pauseRefreshBtn');
 
 function ls(k, v)    { try { if (v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch{} }
 function esc(s)      { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -406,6 +432,20 @@ function elapsed(ms) { const s=Math.round((Date.now()-ms)/1000); return s<60 ? s
 function setStatus(msg, state /* 'live'|'error'|'' */) {
   sText.textContent = msg;
   sDot.className = 'status-dot' + (state ? ' '+state : '');
+}
+
+function setAutoRefreshPaused(paused) {
+  autoRefreshPaused = !!paused;
+  if (pauseRefreshBtn) {
+    pauseRefreshBtn.textContent = autoRefreshPaused ? 'Resume' : 'Pause';
+    pauseRefreshBtn.classList.toggle('active', autoRefreshPaused);
+  }
+  if (autoRefreshPaused) {
+    setStatus('Paused · tap Resume to continue', '');
+  } else if (currentEventId) {
+    setStatus('Refreshing…', 'live');
+    poll(currentEventId);
+  }
 }
 
 function hashSnapshot(obj) {
@@ -499,6 +539,13 @@ function init() {
     setStatus('Not configured', 'error');
     return;
   }
+
+  if (pauseRefreshBtn) {
+    pauseRefreshBtn.addEventListener('click', () => {
+      setAutoRefreshPaused(!autoRefreshPaused);
+    });
+  }
+
   currentEventId ? enterEvent(currentEventId) : openPicker();
 }
 
@@ -588,9 +635,16 @@ function selectEvent(id) {
 function enterEvent(id) {
   setStatus('Connecting…', '');
   poll(id);
-  pollTimer = setInterval(() => poll(id), POLL_MS);
+  pollTimer = setInterval(() => {
+    if (autoRefreshPaused) return;
+    poll(id);
+  }, POLL_MS);
   statusTimer && clearInterval(statusTimer);
   statusTimer = setInterval(() => {
+    if (autoRefreshPaused) {
+      setStatus('Paused · tap Resume to continue', '');
+      return;
+    }
     if (!lastDataChangeTime) return;
     const age = Date.now() - lastDataChangeTime;
     if (age >= STALE_AFTER_MS) {
