@@ -148,6 +148,8 @@
     .results-pane {
       padding: 12px 12px 72px;
       min-height: 200px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     /* Force readable text colors for injected module HTML */
@@ -168,7 +170,23 @@
     }
 
     /* Injected results HTML */
-    .results-pane table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
+    .results-pane img,
+    .results-pane svg,
+    .results-pane canvas,
+    .results-pane iframe {
+      max-width: 100% !important;
+      height: auto !important;
+    }
+    .results-pane table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 8px 0;
+      display: block;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      white-space: nowrap;
+    }
     .results-pane th, .results-pane td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--line); }
     .results-pane th { background: #f1f5f9; font-weight: 700; font-size: 12px; color: #374151; }
     @media (prefers-color-scheme: dark) {
@@ -246,6 +264,37 @@
     .state-wrap { padding: 50px 20px; text-align: center; }
     .state-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
     .state-desc  { font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    /* ===== Mobile first refinements ===== */
+    @media (max-width: 768px) {
+      .brand-header { padding: 8px 10px; min-height: 52px; }
+      .brand-kicker { font-size: 9px; }
+      .brand-title { font-size: 14px; }
+      .brand-logo { height: 32px; max-width: 72px; }
+      .brand-back { padding: 6px 10px; font-size: 12px; }
+
+      .tab-btn,
+      .pill-btn {
+        min-height: 34px;
+      }
+
+      .tab-btn { padding: 10px 12px; font-size: 12px; }
+      .pill-btn { padding: 5px 11px; font-size: 12px; }
+
+      .results-pane {
+        padding: 8px 8px 76px;
+        font-size: 13px;
+      }
+
+      .results-pane table { font-size: 12px; }
+      .results-pane th, .results-pane td { padding: 6px 7px; }
+
+      .picker-wrap { padding: 14px 10px 72px; }
+      .picker-heading { font-size: 20px; }
+      .picker-sub { margin-bottom: 12px; }
+      .event-card { padding: 12px; }
+      .event-card-name { font-size: 15px; }
+    }
   </style>
 </head>
 <body>
