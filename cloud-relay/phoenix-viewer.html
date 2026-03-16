@@ -150,6 +150,23 @@
       min-height: 200px;
     }
 
+    /* Force readable text colors for injected module HTML */
+    .results-pane,
+    .results-pane h1,
+    .results-pane h2,
+    .results-pane h3,
+    .results-pane h4,
+    .results-pane h5,
+    .results-pane h6,
+    .results-pane p,
+    .results-pane span,
+    .results-pane div,
+    .results-pane li,
+    .results-pane td,
+    .results-pane th {
+      color: var(--text) !important;
+    }
+
     /* Injected results HTML */
     .results-pane table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
     .results-pane th, .results-pane td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--line); }
