@@ -9,6 +9,7 @@
  *   Fallback:  change the default key below.
  */
 define('API_KEY',            getenv('API_KEY') ?: 'change-this-to-a-strong-secret');
+define('VIEWER_TOKEN',       getenv('VIEWER_TOKEN') ?: '');
 define('DATA_DIR',           __DIR__ . '/data');
 define('MAX_EVENT_AGE_HOURS', 48);
 define('MAX_BODY_BYTES',     3 * 1024 * 1024); // 3 MB payload guard
@@ -137,6 +138,8 @@ if ($method === 'GET') {
     // GET ?action=events  –  list all known events
     // -----------------------------------------------------------------------
     if ($action === 'events') {
+        enforceViewerToken();
+
         $events = [];
         foreach (glob(DATA_DIR . '/event-*.json') as $file) {
             $base    = basename($file, '.json');
@@ -174,6 +177,8 @@ if ($method === 'GET') {
     // GET ?action=snapshot&eventId=xxx  –  return all module data for event
     // -----------------------------------------------------------------------
     if ($action === 'snapshot' && !empty($_GET['eventId'])) {
+        enforceViewerToken();
+
         $eventId  = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_GET['eventId']);
         $dataFile = DATA_DIR . '/event-' . $eventId . '.json';
 
@@ -279,6 +284,21 @@ function enforceRateLimit(string $bucket, int $limit, int $windowSeconds): void
         header('Retry-After: ' . max(1, $windowSeconds - ($now - $windowStart)));
         http_response_code(429);
         echo json_encode(['error' => 'Rate limit exceeded']);
+        exit;
+    }
+}
+
+function enforceViewerToken(): void
+{
+    // Optional guard: if VIEWER_TOKEN is empty, endpoint remains public.
+    if (VIEWER_TOKEN === '') return;
+
+    $token = $_SERVER['HTTP_X_VIEWER_TOKEN']
+          ?? ($_GET['token'] ?? '');
+
+    if (!is_string($token) || $token !== VIEWER_TOKEN) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Unauthorized viewer token']);
         exit;
     }
 }
