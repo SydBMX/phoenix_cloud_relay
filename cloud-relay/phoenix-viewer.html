@@ -361,7 +361,7 @@ let currentEventId          = INIT_ID;
 let currentModule           = null;
 let currentPtView           = ls('pv_ptView')    || 'results';
 let currentPtSlVariantId    = ls('pv_slVariant') || '';
-let currentCategory         = null;
+let currentCategory         = ls('pv_category')  || null;
 let lastSnapshotData        = null;
 let lastUpdateTime          = null;
 let pollTimer               = null;
@@ -382,6 +382,27 @@ function elapsed(ms) { const s=Math.round((Date.now()-ms)/1000); return s<60 ? s
 function setStatus(msg, state /* 'live'|'error'|'' */) {
   sText.textContent = msg;
   sDot.className = 'status-dot' + (state ? ' '+state : '');
+}
+
+function getBarScrollState() {
+  return {
+    tabBar:   document.getElementById('tabBar')?.scrollLeft   || 0,
+    ptSubBar: document.getElementById('ptSubBar')?.scrollLeft || 0,
+    slVarBar: document.getElementById('slVarBar')?.scrollLeft || 0,
+    catBar:   document.getElementById('catBar')?.scrollLeft   || 0,
+  };
+}
+
+function restoreBarScrollState(state) {
+  if (!state) return;
+  const tabBar = document.getElementById('tabBar');
+  const ptSubBar = document.getElementById('ptSubBar');
+  const slVarBar = document.getElementById('slVarBar');
+  const catBar = document.getElementById('catBar');
+  if (tabBar) tabBar.scrollLeft = state.tabBar || 0;
+  if (ptSubBar) ptSubBar.scrollLeft = state.ptSubBar || 0;
+  if (slVarBar) slVarBar.scrollLeft = state.slVarBar || 0;
+  if (catBar) catBar.scrollLeft = state.catBar || 0;
 }
 
 // =============================================================================
@@ -528,6 +549,7 @@ async function poll(id) {
 // Render live view
 // =============================================================================
 function renderLive(snaps) {
+  const barScrollState = getBarScrollState();
   const mods = Object.keys(snaps);
   const snap = snaps[currentModule] || snaps[mods[0]];
   if (!snap) return;
@@ -572,9 +594,10 @@ function renderLive(snaps) {
     // Start list file picker (only when multiple variants)
     if (currentPtView === 'startlists' && variants.length > 1) {
       const slBtns = variants.map(v => {
+        const vid = String(v.id);
         const lbl = esc(v.label || `List ${v.id}`);
-        const act = v.id === currentPtSlVariantId ? ' active' : '';
-        return `<button class="pill-btn${act}" data-slv="${esc(v.id)}">${lbl}</button>`;
+        const act = vid === currentPtSlVariantId ? ' active' : '';
+        return `<button class="pill-btn${act}" data-slv="${esc(vid)}">${lbl}</button>`;
       }).join('');
       ptSubBar += `<div class="sub-bar" id="slVarBar">${slBtns}</div>`;
     }
@@ -628,6 +651,7 @@ function renderLive(snaps) {
 
   applyCategory();
   bindEvents();
+  restoreBarScrollState(barScrollState);
 }
 
 // =============================================================================
@@ -640,10 +664,11 @@ function getHtml(snap, isPt, ptV, variants) {
   if (currentPtView === 'startlists') {
     if (variants.length > 0) {
       // Validate variant selection
-      if (!currentPtSlVariantId || !variants.find(v => v.id === currentPtSlVariantId)) {
-        currentPtSlVariantId = variants[0].id;
+      if (!currentPtSlVariantId || !variants.find(v => String(v.id) === currentPtSlVariantId)) {
+        currentPtSlVariantId = String(variants[0].id);
+        ls('pv_slVariant', currentPtSlVariantId);
       }
-      const v = variants.find(v => v.id === currentPtSlVariantId);
+      const v = variants.find(v => String(v.id) === currentPtSlVariantId);
       return v?.html || ptV.startlists || snap.html || '';
     }
     return ptV.startlists || snap.html || '';
@@ -715,6 +740,7 @@ function bindEvents() {
       const btn = e.target.closest('[data-cat]');
       if (!btn) return;
       currentCategory = btn.dataset.cat;
+      ls('pv_category', currentCategory);
       // Update button active states
       catBar.querySelectorAll('[data-cat]').forEach(b => {
         b.classList.toggle('active', b.dataset.cat === currentCategory);
