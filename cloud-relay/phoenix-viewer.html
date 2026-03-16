@@ -349,10 +349,11 @@ function renderPicker(evts) {
   const cards = evts.map(ev => {
     const name = esc(ev.eventName || ev.eventId);
     const mods = esc((ev.modules||[]).join(' · '));
+    const id   = esc(ev.eventId || '');
     const ts   = ev.lastUpdate ? new Date(ev.lastUpdate).getTime() : 0;
     const ago  = ts ? elapsed(ts) + ' ago' : '–';
     const fresh = ts && (now - ts) < 20000;
-    return `<div class="event-card" onclick="selectEvent(${JSON.stringify(ev.eventId)})">
+    return `<div class="event-card" data-event-id="${id}">
       <div class="event-card-name">${name}${fresh ? '<span class="live-badge">● LIVE</span>' : ''}</div>
       <div class="event-card-meta">${mods} &nbsp;·&nbsp; Updated ${esc(ago)}</div>
     </div>`;
@@ -364,6 +365,17 @@ function renderPicker(evts) {
       <div class="picker-sub">Tap an event to view live results.</div>
       ${cards}
     </div>`;
+
+  const picker = app.querySelector('.picker-wrap');
+  if (picker) {
+    picker.addEventListener('click', (e) => {
+      const card = e.target.closest('.event-card[data-event-id]');
+      if (!card) return;
+      const id = card.getAttribute('data-event-id') || '';
+      if (!id) return;
+      selectEvent(id);
+    });
+  }
 }
 
 function selectEvent(id) {
