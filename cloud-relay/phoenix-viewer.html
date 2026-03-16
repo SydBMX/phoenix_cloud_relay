@@ -393,13 +393,17 @@
 // =============================================================================
 // Config  (reads URL params, falls back to auto-detect)
 // =============================================================================
+// For mobile-app bundled use, set these values in the file before packaging.
+// Leave empty to keep URL-param behavior.
+const EMBED_RELAY_URL = '';
+const EMBED_EVENT_ID = '';
+
 const _p      = new URLSearchParams(window.location.search);
-const RELAY   = (_p.get('relayUrl') || '').trim() || autoRelayUrl();
-const INIT_ID = (_p.get('eventId') || '').trim();
-const VIEWER_TOKEN = (_p.get('token') || '').trim();
+const RELAY   = (_p.get('relayUrl') || '').trim() || EMBED_RELAY_URL.trim() || autoRelayUrl();
+const INIT_ID = (_p.get('eventId') || '').trim() || EMBED_EVENT_ID.trim();
 const POLL_MS = 3000;
 const STALE_AFTER_MS = 20000;
-const VIEWER_VERSION = '2026.03.16-4';
+const VIEWER_VERSION = '2026.03.16-3';
 
 function autoRelayUrl() {
   // If the viewer is hosted alongside relay.php in the same directory, derive the URL.
@@ -535,21 +539,8 @@ function bindContentInteractionGuards() {
 // API
 // =============================================================================
 async function apiGet(qs) {
-  const joiner = qs.includes('?') ? '&' : '&';
-  const tokenQs = VIEWER_TOKEN ? `${joiner}token=${encodeURIComponent(VIEWER_TOKEN)}` : '';
-  const url = `${RELAY}?${qs}${tokenQs}`;
-  const res = await fetch(url, {
-    cache: 'no-store',
-    headers: VIEWER_TOKEN ? { 'X-Viewer-Token': VIEWER_TOKEN } : {},
-  });
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.error) msg = body.error;
-    } catch {}
-    throw new Error(msg);
-  }
+  const res = await fetch(`${RELAY}?${qs}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
@@ -597,11 +588,6 @@ async function pollPicker() {
       setStatus(`${evts.length} event${evts.length!==1?'s':''} available`, 'live');
     }
   } catch(e) {
-    if (/viewer token|unauthorized/i.test(String(e.message || ''))) {
-      renderMsg('Viewer access blocked', 'This relay requires a token. Open the URL with ?token=YOUR_TOKEN.');
-      setStatus('Auth required', 'error');
-      return;
-    }
     renderMsg('Cannot reach relay', e.message);
     setStatus('Connection error', 'error');
   }
