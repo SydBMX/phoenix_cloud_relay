@@ -366,6 +366,7 @@ const _p      = new URLSearchParams(window.location.search);
 const RELAY   = (_p.get('relayUrl') || '').trim() || autoRelayUrl();
 const INIT_ID = (_p.get('eventId') || '').trim();
 const POLL_MS = 3000;
+const STALE_AFTER_MS = 20000;
 
 function autoRelayUrl() {
   // If the viewer is hosted alongside relay.php in the same directory, derive the URL.
@@ -382,6 +383,7 @@ let currentPtSlVariantId    = ls('pv_slVariant') || '';
 let currentCategory         = ls('pv_category')  || null;
 let lastSnapshotData        = null;
 let lastUpdateTime          = null;
+let lastDataChangeTime      = null;
 let pollTimer               = null;
 let statusTimer             = null;
 let pickerMode              = !INIT_ID;   // true = showing event picker
@@ -589,7 +591,13 @@ function enterEvent(id) {
   pollTimer = setInterval(() => poll(id), POLL_MS);
   statusTimer && clearInterval(statusTimer);
   statusTimer = setInterval(() => {
-    if (lastUpdateTime) setStatus(`Live · Updated ${elapsed(lastUpdateTime)} ago`, 'live');
+    if (!lastDataChangeTime) return;
+    const age = Date.now() - lastDataChangeTime;
+    if (age >= STALE_AFTER_MS) {
+      setStatus(`Stale · last update ${elapsed(lastDataChangeTime)} ago`, '');
+    } else {
+      setStatus(`Live · Updated ${elapsed(lastDataChangeTime)} ago`, 'live');
+    }
   }, 5000);
 }
 
@@ -615,7 +623,14 @@ async function poll(id) {
 
     const snapshotHash = hashSnapshot(snaps);
     if (snapshotHash === lastRenderedSnapshotHash) {
-      setStatus('Live · Updated just now', 'live');
+      if (lastDataChangeTime) {
+        const age = Date.now() - lastDataChangeTime;
+        if (age >= STALE_AFTER_MS) {
+          setStatus(`Stale · last update ${elapsed(lastDataChangeTime)} ago`, '');
+        } else {
+          setStatus(`Live · Updated ${elapsed(lastDataChangeTime)} ago`, 'live');
+        }
+      }
       return;
     }
 
@@ -626,6 +641,7 @@ async function poll(id) {
     }
 
     renderLive(snaps);
+    lastDataChangeTime = Date.now();
     setStatus('Live · Updated just now', 'live');
   } catch(e) {
     setStatus('Connection error: ' + e.message, 'error');
