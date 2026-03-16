@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Phoenix Live</title>
+  <style>
+    /* ===== Design tokens ===== */
+    :root {
+      --bg:       #f0f4f8;
+      --card:     #ffffff;
+      --text:     #0b1f3b;
+      --muted:    #6b7280;
+      --line:     #e2e8f0;
+      --accent:   #0f4c81;
+      --live:     #10b981;
+      --warn:     #f59e0b;
+      --err:      #ef4444;
+      --brand-dk: #0b1f3b;
+      --brand-md: #0f4c81;
+      --brand-lt: #16a6c9;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:    #0f172a;
+        --card:  #1e293b;
+        --text:  #f1f5f9;
+        --muted: #94a3b8;
+        --line:  #2d3f55;
+      }
+    }
+
+    /* ===== Reset ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ===== Sticky brand header ===== */
+    .brand-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(135deg, var(--brand-dk) 0%, var(--brand-md) 100%);
+      color: #fff;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 56px;
+    }
+    .brand-left  { flex: 1; min-width: 0; }
+    .brand-kicker {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.65;
+      margin-bottom: 2px;
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .brand-logo {
+      flex-shrink: 0;
+      height: 38px;
+      max-width: 90px;
+      object-fit: contain;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.12);
+      padding: 3px;
+    }
+    .brand-back {
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* ===== Tab bars ===== */
+    .tab-bar, .sub-bar, .cat-bar {
+      background: var(--card);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 0 10px;
+    }
+    .tab-bar::-webkit-scrollbar,
+    .sub-bar::-webkit-scrollbar,
+    .cat-bar::-webkit-scrollbar { display: none; }
+
+    .sub-bar, .cat-bar {
+      gap: 6px;
+      padding: 7px 10px;
+      background: #f8fafc;
+    }
+    @media (prefers-color-scheme: dark) {
+      .sub-bar, .cat-bar { background: #162032; }
+    }
+
+    .tab-btn {
+      flex-shrink: 0;
+      padding: 12px 14px;
+      border: none;
+      background: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      white-space: nowrap;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .pill-btn {
+      flex-shrink: 0;
+      padding: 5px 13px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .pill-btn.active  { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .pill-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+
+    /* ===== Results pane ===== */
+    .results-pane {
+      padding: 12px 12px 72px;
+      min-height: 200px;
+    }
+
+    /* Injected results HTML */
+    .results-pane table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
+    .results-pane th, .results-pane td { padding: 7px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+    .results-pane th { background: #f1f5f9; font-weight: 700; font-size: 12px; color: #374151; }
+    @media (prefers-color-scheme: dark) {
+      .results-pane th { background: #263148; color: #e2e8f0; }
+    }
+    .results-pane tr:first-child td { background: #fffbeb !important; font-weight: 600; }
+    .results-pane tr:nth-child(2) td  { background: #f8fafc !important; }
+    .results-pane tr:nth-child(3) td  { background: #fff8f5 !important; }
+    @media (prefers-color-scheme: dark) {
+      .results-pane tr:first-child td  { background: #2d2a00 !important; }
+      .results-pane tr:nth-child(2) td { background: #1e293b !important; }
+      .results-pane tr:nth-child(3) td { background: #221a16 !important; }
+    }
+    .results-pane h2 { font-size: 17px; font-weight: 800; margin: 14px 0 6px; color: var(--brand-dk); }
+    .results-pane h3 { font-size: 14px; font-weight: 700; margin: 10px 0 4px; color: var(--brand-md); }
+
+    /* ===== Status bar ===== */
+    .status-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(11, 31, 59, 0.93);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: rgba(255,255,255,0.82);
+      font-size: 11px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 200;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--warn);
+      transition: background 0.3s;
+    }
+    .status-dot.live  { background: var(--live); animation: sPulse 2.2s infinite; }
+    .status-dot.error { background: var(--err);  animation: none; }
+    @keyframes sPulse { 0%,100% { opacity:1; } 50% { opacity:.38; } }
+
+    /* ===== Event picker ===== */
+    .picker-wrap { padding: 18px 14px 72px; }
+    .picker-heading {
+      font-size: 22px; font-weight: 800;
+      color: var(--brand-dk); margin-bottom: 4px;
+    }
+    .picker-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+    .event-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: box-shadow 0.12s, transform 0.1s;
+    }
+    .event-card:active { transform: scale(0.98); opacity: 0.85; }
+    .event-card-name { font-size: 16px; font-weight: 700; }
+    .event-card-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .live-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    /* ===== State messages ===== */
+    .state-wrap { padding: 50px 20px; text-align: center; }
+    .state-title { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .state-desc  { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+  <div id="app"></div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="sDot"></div>
+    <span id="sText">Connecting…</span>
+  </div>
+
+<script>
+// =============================================================================
+// Config  (reads URL params, falls back to auto-detect)
+// =============================================================================
+const _p      = new URLSearchParams(window.location.search);
+const RELAY   = (_p.get('relayUrl') || '').trim() || autoRelayUrl();
+const INIT_ID = (_p.get('eventId') || '').trim();
+const POLL_MS = 3000;
+
+function autoRelayUrl() {
+  // If the viewer is hosted alongside relay.php in the same directory, derive the URL.
+  return window.location.href.replace(/\/[^\/]*(\?.*)?$/, '/relay.php');
+}
+
+// =============================================================================
+// State
+// =============================================================================
+let currentEventId          = INIT_ID;
+let currentModule           = null;
+let currentPtView           = ls('pv_ptView')    || 'results';
+let currentPtSlVariantId    = ls('pv_slVariant') || '';
+let currentCategory         = null;
+let lastSnapshotData        = null;
+let lastUpdateTime          = null;
+let pollTimer               = null;
+let statusTimer             = null;
+let pickerMode              = !INIT_ID;   // true = showing event picker
+
+// =============================================================================
+// Helpers
+// =============================================================================
+const app  = document.getElementById('app');
+const sDot = document.getElementById('sDot');
+const sText = document.getElementById('sText');
+
+function ls(k, v)    { try { if (v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch{} }
+function esc(s)      { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function elapsed(ms) { const s=Math.round((Date.now()-ms)/1000); return s<60 ? s+'s' : Math.floor(s/60)+'m'; }
+
+function setStatus(msg, state /* 'live'|'error'|'' */) {
+  sText.textContent = msg;
+  sDot.className = 'status-dot' + (state ? ' '+state : '');
+}
+
+// =============================================================================
+// API
+// =============================================================================
+async function apiGet(qs) {
+  const res = await fetch(`${RELAY}?${qs}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// =============================================================================
+// Init
+// =============================================================================
+function init() {
+  if (!RELAY) {
+    renderMsg('No relay URL', 'Pass ?relayUrl=https://yoursite.com/phoenix-live/relay.php in the URL, or host this file in the same folder as relay.php.');
+    setStatus('Not configured', 'error');
+    return;
+  }
+  currentEventId ? enterEvent(currentEventId) : openPicker();
+}
+
+// =============================================================================
+// Event Picker
+// =============================================================================
+function openPicker() {
+  clearInterval(pollTimer);
+  pickerMode = true;
+  setStatus('Loading events…');
+  pollPicker();
+  pollTimer = setInterval(pollPicker, 6000);
+}
+
+async function pollPicker() {
+  try {
+    const data  = await apiGet('action=events');
+    const evts  = data.events || [];
+    if (!evts.length) {
+      renderPickerEmpty();
+      setStatus('No live events yet', '');
+    } else {
+      renderPicker(evts);
+      setStatus(`${evts.length} event${evts.length!==1?'s':''} available`, 'live');
+    }
+  } catch(e) {
+    renderMsg('Cannot reach relay', e.message);
+    setStatus('Connection error', 'error');
+  }
+}
+
+function renderPickerEmpty() {
+  app.innerHTML = `
+    <div class="picker-wrap">
+      <div class="picker-heading">Phoenix Live</div>
+      <div class="picker-sub">No events broadcasting at the moment.</div>
+      <div class="state-wrap" style="padding-top:20px;">
+        <div class="state-desc">Check back soon, or make sure the Phoenix desktop app is running with Cloud Relay enabled.</div>
+      </div>
+    </div>`;
+}
+
+function renderPicker(evts) {
+  const now = Date.now();
+  const cards = evts.map(ev => {
+    const name = esc(ev.eventName || ev.eventId);
+    const mods = esc((ev.modules||[]).join(' · '));
+    const ts   = ev.lastUpdate ? new Date(ev.lastUpdate).getTime() : 0;
+    const ago  = ts ? elapsed(ts) + ' ago' : '–';
+    const fresh = ts && (now - ts) < 20000;
+    return `<div class="event-card" onclick="selectEvent(${JSON.stringify(ev.eventId)})">
+      <div class="event-card-name">${name}${fresh ? '<span class="live-badge">● LIVE</span>' : ''}</div>
+      <div class="event-card-meta">${mods} &nbsp;·&nbsp; Updated ${esc(ago)}</div>
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="picker-wrap">
+      <div class="picker-heading">Phoenix Live</div>
+      <div class="picker-sub">Tap an event to view live results.</div>
+      ${cards}
+    </div>`;
+}
+
+function selectEvent(id) {
+  clearInterval(pollTimer);
+  currentEventId = id;
+  pickerMode = false;
+  enterEvent(id);
+}
+
+// =============================================================================
+// Live view
+// =============================================================================
+function enterEvent(id) {
+  setStatus('Connecting…', '');
+  poll(id);
+  pollTimer = setInterval(() => poll(id), POLL_MS);
+  statusTimer && clearInterval(statusTimer);
+  statusTimer = setInterval(() => {
+    if (lastUpdateTime) setStatus(`Live · Updated ${elapsed(lastUpdateTime)} ago`, 'live');
+  }, 5000);
+}
+
+async function poll(id) {
+  try {
+    const data  = await apiGet(`action=snapshot&eventId=${encodeURIComponent(id)}`);
+    const snaps = data.snapshots || {};
+    const mods  = Object.keys(snaps);
+
+    if (!mods.length) {
+      renderWaiting(id);
+      setStatus('Waiting for data…', '');
+      return;
+    }
+
+    // Auto-pick module: prefer PT
+    if (!currentModule || !snaps[currentModule]) {
+      currentModule = mods.includes('pt') ? 'pt' : mods[0];
+    }
+
+    lastSnapshotData = snaps;
+    lastUpdateTime   = Date.now();
+    renderLive(snaps);
+    setStatus('Live · Updated just now', 'live');
+  } catch(e) {
+    setStatus('Connection error: ' + e.message, 'error');
+  }
+}
+
+// =============================================================================
+// Render live view
+// =============================================================================
+function renderLive(snaps) {
+  const mods = Object.keys(snaps);
+  const snap = snaps[currentModule] || snaps[mods[0]];
+  if (!snap) return;
+
+  const eventName = snap.eventName || currentEventId || 'Phoenix Live';
+  const logo      = snap.branding?.logoDataUrl || '';
+
+  // ------- Module tabs -------
+  const modLabels = {
+    series:    'Series Ranking',
+    staging:   'Stage Timing',
+    points:    'Stage Points',
+    criterium: 'Criterium',
+    pt:        'Pump Track',
+  };
+  const tabs = mods.map(m =>
+    `<button class="tab-btn${m===currentModule?' active':''}" data-mod="${esc(m)}">${esc(modLabels[m]||m)}</button>`
+  ).join('');
+
+  // ------- PT sub-tabs -------
+  const isPt     = currentModule === 'pt';
+  const ptV      = isPt ? (snap.views||{}) : {};
+  const variants = Array.isArray(ptV.startlistsVariants) ? ptV.startlistsVariants : [];
+
+  // Validate currentPtView
+  if (isPt && !ptV[currentPtView] && !['startlists'].includes(currentPtView)) {
+    currentPtView = ptV.results ? 'results' : (ptV.startlists ? 'startlists' : 'eventreport');
+  }
+
+  let ptSubBar = '';
+  if (isPt) {
+    const subBtns = [
+      { key:'results',     label:'Results',      has:!!ptV.results },
+      { key:'startlists',  label:'Start Lists',  has:!!(ptV.startlists||(variants.length>0)) },
+      { key:'eventreport', label:'Event Report', has:!!ptV.eventreport },
+    ].filter(x=>x.has).map(x =>
+      `<button class="pill-btn${x.key===currentPtView?' active':''}" data-ptv="${x.key}">${x.label}</button>`
+    ).join('');
+
+    ptSubBar = subBtns ? `<div class="sub-bar" id="ptSubBar">${subBtns}</div>` : '';
+
+    // Start list file picker (only when multiple variants)
+    if (currentPtView === 'startlists' && variants.length > 1) {
+      const slBtns = variants.map(v => {
+        const lbl = esc(v.label || `List ${v.id}`);
+        const act = v.id === currentPtSlVariantId ? ' active' : '';
+        return `<button class="pill-btn${act}" data-slv="${esc(v.id)}">${lbl}</button>`;
+      }).join('');
+      ptSubBar += `<div class="sub-bar" id="slVarBar">${slBtns}</div>`;
+    }
+  }
+
+  // ------- Get rendered HTML -------
+  const html = getHtml(snap, isPt, ptV, variants);
+
+  // ------- Category filter -------
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+  const catSections = Array.from(tmp.querySelectorAll('[data-category]'));
+  const catNames = [];
+  catSections.forEach(s => { const n = s.dataset.category; if(n && !catNames.includes(n)) catNames.push(n); });
+
+  // Auto-pick initial category (prefer 'overall')
+  if (!currentCategory || !catNames.includes(currentCategory)) {
+    const oi = catNames.findIndex(n => /overall/i.test(n));
+    currentCategory = catNames[oi >= 0 ? oi : 0] || '__all__';
+  }
+
+  let catBar = '';
+  if (catNames.length > 1) {
+    const allAct = currentCategory === '__all__' ? ' active' : '';
+    const catBtns = catNames.map(c =>
+      `<button class="pill-btn${c===currentCategory?' active':''}" data-cat="${esc(c)}">${esc(c)}</button>`
+    ).join('');
+    catBar = `<div class="cat-bar" id="catBar">
+      <button class="pill-btn${allAct}" data-cat="__all__">All</button>
+      ${catBtns}
+    </div>`;
+  }
+
+  // ------- Back button (only when user navigated here from picker) -------
+  const backBtn = pickerMode ? '' : `<button class="brand-back" id="backBtn">← Events</button>`;
+
+  // ------- Compose -------
+  app.innerHTML = `
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-kicker">Phoenix Live</div>
+        <div class="brand-title">${esc(eventName)}</div>
+      </div>
+      ${logo ? `<img class="brand-logo" src="${esc(logo)}" alt="Event logo" onerror="this.style.display='none'">` : ''}
+      ${backBtn}
+    </div>
+    <div class="tab-bar" id="tabBar">${tabs}</div>
+    ${ptSubBar}
+    ${catBar}
+    <div class="results-pane" id="rPane">${html||'<div class="state-wrap"><div class="state-desc">No data available.</div></div>'}</div>`;
+
+  applyCategory();
+  bindEvents();
+}
+
+// =============================================================================
+// Get HTML for current view selection
+// =============================================================================
+function getHtml(snap, isPt, ptV, variants) {
+  if (!snap) return '';
+  if (!isPt || !ptV) return snap.html || '';
+
+  if (currentPtView === 'startlists') {
+    if (variants.length > 0) {
+      // Validate variant selection
+      if (!currentPtSlVariantId || !variants.find(v => v.id === currentPtSlVariantId)) {
+        currentPtSlVariantId = variants[0].id;
+      }
+      const v = variants.find(v => v.id === currentPtSlVariantId);
+      return v?.html || ptV.startlists || snap.html || '';
+    }
+    return ptV.startlists || snap.html || '';
+  }
+  if (currentPtView === 'eventreport') return ptV.eventreport || snap.html || '';
+  return ptV.results || snap.html || '';
+}
+
+// =============================================================================
+// Category filtering
+// =============================================================================
+function applyCategory() {
+  const pane = document.getElementById('rPane');
+  if (!pane) return;
+  const sects = Array.from(pane.querySelectorAll('[data-category]'));
+  if (!sects.length) return;
+
+  if (currentCategory === '__all__') {
+    sects.forEach(s => s.style.display = '');
+    return;
+  }
+  sects.forEach(s => {
+    s.style.display = (s.dataset.category === currentCategory) ? '' : 'none';
+  });
+}
+
+// =============================================================================
+// Event delegation (single listener on app for all interactive elements)
+// =============================================================================
+function bindEvents() {
+  const tabBar   = document.getElementById('tabBar');
+  const ptSubBar = document.getElementById('ptSubBar');
+  const slVarBar = document.getElementById('slVarBar');
+  const catBar   = document.getElementById('catBar');
+  const backBtn  = document.getElementById('backBtn');
+
+  if (tabBar) {
+    tabBar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-mod]');
+      if (!btn) return;
+      currentModule = btn.dataset.mod;
+      if (lastSnapshotData) renderLive(lastSnapshotData);
+    });
+  }
+
+  if (ptSubBar) {
+    ptSubBar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-ptv]');
+      if (!btn) return;
+      currentPtView = btn.dataset.ptv;
+      ls('pv_ptView', currentPtView);
+      currentPtSlVariantId = '';
+      if (lastSnapshotData) renderLive(lastSnapshotData);
+    });
+  }
+
+  if (slVarBar) {
+    slVarBar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-slv]');
+      if (!btn) return;
+      currentPtSlVariantId = btn.dataset.slv;
+      ls('pv_slVariant', currentPtSlVariantId);
+      if (lastSnapshotData) renderLive(lastSnapshotData);
+    });
+  }
+
+  if (catBar) {
+    catBar.addEventListener('click', e => {
+      const btn = e.target.closest('[data-cat]');
+      if (!btn) return;
+      currentCategory = btn.dataset.cat;
+      // Update button active states
+      catBar.querySelectorAll('[data-cat]').forEach(b => {
+        b.classList.toggle('active', b.dataset.cat === currentCategory);
+      });
+      applyCategory();
+    });
+  }
+
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      clearInterval(pollTimer);
+      clearInterval(statusTimer);
+      currentEventId = null;
+      currentModule  = null;
+      pickerMode     = true;
+      openPicker();
+    });
+  }
+}
+
+// =============================================================================
+// Fallback states
+// =============================================================================
+function renderWaiting(id) {
+  app.innerHTML = `
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-kicker">Phoenix Live</div>
+        <div class="brand-title">${esc(currentEventId || id)}</div>
+      </div>
+    </div>
+    <div class="state-wrap">
+      <div class="state-title">Waiting for data</div>
+      <div class="state-desc">The desktop app hasn't published any results yet.<br>Make sure Phoenix is running with Cloud Relay enabled.</div>
+    </div>`;
+}
+
+function renderMsg(title, detail) {
+  app.innerHTML = `
+    <div class="state-wrap">
+      <div class="state-title">${esc(title)}</div>
+      <div class="state-desc">${esc(detail)}</div>
+    </div>`;
+}
+
+// =============================================================================
+// Start
+// =============================================================================
+init();
+</script>
+</body>
+</html>
