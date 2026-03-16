@@ -385,6 +385,10 @@ let lastUpdateTime          = null;
 let pollTimer               = null;
 let statusTimer             = null;
 let pickerMode              = !INIT_ID;   // true = showing event picker
+let lastRenderedSnapshotHash = '';
+let pendingSnapshotForRender = null;
+let userIsInteracting = false;
+let interactionReleaseTimer = null;
 
 // =============================================================================
 // Helpers
@@ -402,12 +406,25 @@ function setStatus(msg, state /* 'live'|'error'|'' */) {
   sDot.className = 'status-dot' + (state ? ' '+state : '');
 }
 
+function hashSnapshot(obj) {
+  try { return JSON.stringify(obj); } catch { return String(Date.now()); }
+}
+
 function getBarScrollState() {
   return {
     tabBar:   document.getElementById('tabBar')?.scrollLeft   || 0,
     ptSubBar: document.getElementById('ptSubBar')?.scrollLeft || 0,
     slVarBar: document.getElementById('slVarBar')?.scrollLeft || 0,
     catBar:   document.getElementById('catBar')?.scrollLeft   || 0,
+  };
+}
+
+function getContentScrollState() {
+  const pane = document.getElementById('rPane');
+  const tableScrolls = Array.from(document.querySelectorAll('#rPane table')).map(t => t.scrollLeft || 0);
+  return {
+    paneX: pane?.scrollLeft || 0,
+    tableScrolls,
   };
 }
 
@@ -421,6 +438,45 @@ function restoreBarScrollState(state) {
   if (ptSubBar) ptSubBar.scrollLeft = state.ptSubBar || 0;
   if (slVarBar) slVarBar.scrollLeft = state.slVarBar || 0;
   if (catBar) catBar.scrollLeft = state.catBar || 0;
+}
+
+function restoreContentScrollState(state) {
+  if (!state) return;
+  const pane = document.getElementById('rPane');
+  if (pane) pane.scrollLeft = state.paneX || 0;
+  const tables = Array.from(document.querySelectorAll('#rPane table'));
+  tables.forEach((t, i) => {
+    t.scrollLeft = state.tableScrolls?.[i] || 0;
+  });
+}
+
+function markInteractionStart() {
+  userIsInteracting = true;
+  if (interactionReleaseTimer) clearTimeout(interactionReleaseTimer);
+}
+
+function markInteractionEnd() {
+  if (interactionReleaseTimer) clearTimeout(interactionReleaseTimer);
+  interactionReleaseTimer = setTimeout(() => {
+    userIsInteracting = false;
+    if (pendingSnapshotForRender) {
+      const queued = pendingSnapshotForRender;
+      pendingSnapshotForRender = null;
+      renderLive(queued);
+    }
+  }, 900);
+}
+
+function bindContentInteractionGuards() {
+  const pane = document.getElementById('rPane');
+  if (!pane) return;
+  pane.addEventListener('touchstart', markInteractionStart, { passive: true });
+  pane.addEventListener('touchmove', markInteractionStart, { passive: true });
+  pane.addEventListener('touchend', markInteractionEnd, { passive: true });
+  pane.addEventListener('touchcancel', markInteractionEnd, { passive: true });
+  pane.addEventListener('mousedown', markInteractionStart);
+  pane.addEventListener('mouseup', markInteractionEnd);
+  pane.addEventListener('mouseleave', markInteractionEnd);
 }
 
 // =============================================================================
@@ -556,6 +612,19 @@ async function poll(id) {
 
     lastSnapshotData = snaps;
     lastUpdateTime   = Date.now();
+
+    const snapshotHash = hashSnapshot(snaps);
+    if (snapshotHash === lastRenderedSnapshotHash) {
+      setStatus('Live · Updated just now', 'live');
+      return;
+    }
+
+    if (userIsInteracting) {
+      pendingSnapshotForRender = snaps;
+      setStatus('Live · New data queued', 'live');
+      return;
+    }
+
     renderLive(snaps);
     setStatus('Live · Updated just now', 'live');
   } catch(e) {
@@ -568,6 +637,7 @@ async function poll(id) {
 // =============================================================================
 function renderLive(snaps) {
   const barScrollState = getBarScrollState();
+  const contentScrollState = getContentScrollState();
   const mods = Object.keys(snaps);
   const snap = snaps[currentModule] || snaps[mods[0]];
   if (!snap) return;
@@ -670,6 +740,9 @@ function renderLive(snaps) {
   applyCategory();
   bindEvents();
   restoreBarScrollState(barScrollState);
+  restoreContentScrollState(contentScrollState);
+  bindContentInteractionGuards();
+  lastRenderedSnapshotHash = hashSnapshot(snaps);
 }
 
 // =============================================================================
